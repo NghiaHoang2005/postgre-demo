@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <title>E-Shop Demo</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" href="style.css">
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@500;700&display=swap" rel="stylesheet">
+</head>
+<body>
+  <header>
+    <div class="container header-inner">
+      <div class="brand">
+        <img src="https://cdn-icons-png.flaticon.com/512/2503/2503508.png" alt="E-Shop" class="logo">
+        <span class="brand-title">E-Shop</span>
+      </div>
+      <nav id="mainNav">
+        <a href="#products" class="nav-link">Sản phẩm</a>
+        <a href="#cart" class="nav-link">Giỏ hàng</a>
+        <a href="#orders" class="nav-link">Đơn hàng</a>
+        <a href="#admin" class="nav-link" id="adminNavLink" style="display:none;">Admin</a>
+      </nav>
+      <div id="userPanel" class="user-panel"></div>
+    </div>
+  </header>
+
+  <main>
+    <!-- Đăng nhập -->
+    <section id="loginPage" class="center-section auth-section" style="display: block;">
+      <form id="loginForm" class="auth-card">
+        <h2>Đăng nhập tài khoản</h2>
+        <input id="loginUsername" placeholder="Tên đăng nhập" required>
+        <input id="loginPassword" type="password" placeholder="Mật khẩu" required>
+        <button type="submit" class="btn primary">Đăng nhập</button>
+        <p>Chưa có tài khoản? <a href="#register" class="link">Đăng ký</a></p>
+        <div class="form-message" id="loginMsg"></div>
+      </form>
+    </section>
+
+    <!-- Đăng ký -->
+    <section id="registerPage" class="center-section auth-section" style="display: none;">
+      <form id="registerForm" class="auth-card">
+        <h2>Tạo tài khoản mới</h2>
+        <input id="regUsername" placeholder="Tên đăng nhập" required>
+        <input id="regPassword" type="password" placeholder="Mật khẩu" required>
+        <input type="hidden" id="regRole" value="customer">
+        <button type="submit" class="btn secondary">Đăng ký</button>
+        <p>Đã có tài khoản? <a href="#login" class="link">Đăng nhập</a></p>
+        <div class="form-message" id="registerMsg"></div>
+      </form>
+    </section>
+
+    <!-- Sản phẩm -->
+    <section id="productsPage" style="display:none;">
+      <div class="container">
+        <div class="search-bar">
+          <input id="searchInput" placeholder="Bạn tìm gì hôm nay?">
+          <button id="searchBtn" class="btn primary">Tìm kiếm</button>
+        </div>
+        <div id="products" class="product-list"></div>
+      </div>
+    </section>
+
+    <!-- Giỏ hàng -->
+    <section id="cartPage" style="display:none;">
+      <div class="container">
+        <div class="cart-card">
+          <h2>🛒 Giỏ hàng</h2>
+          <div id="cartItems"></div>
+          <div class="cart-total">
+            <button id="checkoutBtn" class="btn accent">Thanh toán</button>
+            <span id="cartTotal"></span>
+          </div>
+          <div class="form-message" id="cartMsg"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Đơn hàng -->
+    <section id="ordersPage" style="display:none;">
+      <div class="container">
+        <div class="orders-card">
+          <h2>📦 Đơn hàng của bạn</h2>
+          <div id="ordersList"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Admin -->
+    <section id="adminPage" style="display:none;">
+      <div class="container">
+        <div class="admin-panel">
+          <h2>Admin Panel</h2>
+          <form id="addProductForm" class="admin-form">
+            <div class="form-row">
+              <input id="prodName" placeholder="Tên sản phẩm" required>
+              <input id="prodDesc" placeholder="Mô tả" required>
+            </div>
+            <div class="form-row">
+              <input id="prodPrice" type="number" placeholder="Giá" required>
+              <input id="prodImage" type="file" accept="image/*">
+            </div>
+            <button type="submit" class="btn primary">Thêm sản phẩm</button>
+            <div class="form-message" id="addProductMsg"></div>
+          </form>
+          <h3>Danh sách sản phẩm</h3>
+          <div id="adminProducts" class="product-list"></div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <div class="container">
+      <span>&copy; 2025 E-Shop Demo.</span>
+    </div>
+  </footer>
+  <script src="main.js"></script>
+</body>
+</html>
