@@ -141,9 +141,16 @@ function logout() {
 
 // ========== SẢN PHẨM ==========
 let allProducts = [];
-async function loadProducts(keyword = '') {
+async function loadProducts(keyword = '', maxPrice = '') {
   let url = '/api/products';
-  if (keyword) url += '?q=' + encodeURIComponent(keyword);
+  const params = new URLSearchParams();
+  if (keyword) params.append('q', keyword);
+  if (maxPrice) params.append('price', maxPrice);
+
+  if ([...params].length > 0) {
+    url += '?' + params.toString();
+  }
+
   let res = await fetch(url);
   let data = await res.json();
   allProducts = Array.isArray(data) ? data : [];
@@ -172,10 +179,16 @@ function renderProducts() {
   }
 }
 document.getElementById('searchBtn').onclick = function() {
-  loadProducts(searchInput.value);
+  const keyword = document.getElementById('searchInput').value.trim();
+  const maxPrice = document.getElementById('maxPriceInput').value.trim();
+  loadProducts(keyword, maxPrice);
 };
 document.getElementById('searchInput').onkeydown = function(e) {
-  if (e.key === 'Enter') loadProducts(searchInput.value);
+  if (e.key === 'Enter') {
+    const keyword = document.getElementById('searchInput').value.trim();
+    const maxPrice = document.getElementById('maxPriceInput').value.trim();
+    loadProducts(keyword, maxPrice);
+  }
 };
 
 // ========== GIỎ HÀNG ==========

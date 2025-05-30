@@ -55,7 +55,11 @@
       <div class="container">
         <div class="search-bar">
           <input id="searchInput" placeholder="Bạn tìm gì hôm nay?">
-          <button id="searchBtn" class="btn primary">Tìm kiếm</button>
+          
+          <!-- Thêm input lọc theo giá -->
+          <input id="maxPriceInput" type="number" min="0" placeholder="Giá tối đa" style="margin-left: 10px;">
+          
+          <button id="searchBtn" class="btn primary" style="margin-left: 10px;">Tìm kiếm</button>
         </div>
         <div id="products" class="product-list"></div>
       </div>

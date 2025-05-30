@@ -46,29 +46,54 @@ router.post(
 
 // List/Search sản phẩm (accent-insensitive, typo-tolerant)
 router.get('/', async (req, res) => {
-  const { q } = req.query;
+  const { q, price } = req.query;
   let sql = 'SELECT * FROM products';
-  let params = [];
+  const params = [];
+  let conditions = [];
+
+  // Tìm theo từ khóa q
   if (q) {
-    sql = `
-      SELECT *
-      FROM products
-      WHERE
+    conditions.push(`
+      (
         to_tsvector('simple', unaccent(data::text)) @@ plainto_tsquery('simple', unaccent($1))
         OR similarity(unaccent(data->>'name'), unaccent($1)) > 0.3
         OR similarity(unaccent(data->>'description'), unaccent($1)) > 0.3
-      ORDER BY
-        GREATEST(
-          similarity(unaccent(data->>'name'), unaccent($1)),
-          similarity(unaccent(data->>'description'), unaccent($1))
-        ) DESC
-      LIMIT 30
-    `;
-    params = [q];
+      )
+    `);
+    params.push(q);
   }
+
+  // Lọc theo giá
+  if (price) {
+    const idx = params.length + 1; // vị trí tham số tiếp theo
+    conditions.push(`( (data->>'price')::numeric <= $${idx} )`);
+    params.push(price);
+  }
+
+  if (conditions.length > 0) {
+    sql = `
+      SELECT *
+      FROM products
+      WHERE ${conditions.join(' AND ')}
+    `;
+
+    // Nếu có `q`, thêm sort theo độ giống
+    if (q) {
+      sql += `
+        ORDER BY
+          GREATEST(
+            similarity(unaccent(data->>'name'), unaccent($1)),
+            similarity(unaccent(data->>'description'), unaccent($1))
+          ) DESC
+        LIMIT 30
+      `;
+    }
+  }
+
   const { rows } = await pool.query(sql, params);
   res.json(rows);
 });
+
 
 // Update sản phẩm (admin)
 router.put('/:id', authenticateToken, requireRole('admin'), upload.single('image'), async (req, res) => {
