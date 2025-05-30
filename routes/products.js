@@ -24,17 +24,25 @@ router.post(
   requireRole('admin'),
   upload.single('image'),
   async (req, res) => {
-    let { data } = req.body;
-    data = typeof data === 'string' ? JSON.parse(data) : data;
-    if (req.file) {
-      data.image = '/uploads/' + req.file.filename;
+    try {
+      const { name, description, price } = req.body;
+      const image = req.file ? '/uploads/' + req.file.filename : null;
+
+      const productData = { name, description, price: Number(price), image };
+
+      const { rows } = await pool.query(
+        'INSERT INTO products (data) VALUES ($1) RETURNING *',
+        [productData]
+      );
+
+      res.json(rows[0]);
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ message: 'Lỗi server khi thêm sản phẩm' });
     }
-    const { rows } = await pool.query(
-      'INSERT INTO products (data) VALUES ($1) RETURNING *', [data]
-    );
-    res.json(rows[0]);
   }
 );
+
 
 // List/Search sản phẩm (accent-insensitive, typo-tolerant)
 router.get('/', async (req, res) => {

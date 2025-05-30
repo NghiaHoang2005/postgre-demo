@@ -86,11 +86,17 @@ document.getElementById('loginForm').onsubmit = async function(e) {
     });
     let data = await res.json();
     if (res.ok) {
-      currentUser = {username: data.username, role: data.role, token: data.token};
+      currentUser = {
+        username: data.user.username,
+        role: data.user.role,
+        token: data.token,
+        id: data.user.id
+      };
       localStorage.setItem('user', JSON.stringify(currentUser));
       window.location.hash = data.role === 'admin' ? '#admin' : '#products';
       loginUsername.value = loginPassword.value = '';
       loginMsg.textContent = '';
+      console.log(currentUser);
     } else {
       loginMsg.textContent = data.message || 'Sai tên đăng nhập hoặc mật khẩu!';
     }
@@ -219,7 +225,7 @@ document.getElementById('checkoutBtn').onclick = async function() {
     return;
   }
   try {
-    let res = await fetch('/api/orders', {
+    let res = await fetch('/api/orders/cart/checkout', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -275,25 +281,26 @@ async function loadOrders() {
 document.getElementById('addProductForm').onsubmit = async function(e) {
   e.preventDefault();
   addProductMsg.textContent = '';
-  const name = prodName.value.trim();
-  const description = prodDesc.value.trim();
-  const price = Number(prodPrice.value);
-  let imageUrl = '';
+  
+  const formData = new FormData();
+  formData.append('name', prodName.value.trim());
+  formData.append('description', prodDesc.value.trim());
+  formData.append('price', prodPrice.value.trim());
   if (prodImage.files[0]) {
-    imageUrl = await toBase64(prodImage.files[0]);
+    formData.append('image', prodImage.files[0]);
   }
+
   try {
     let res = await fetch('/api/products', {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json',
-        'Authorization': currentUser.token
+        // ❌ KHÔNG cần 'Content-Type': multipart/form-data sẽ được thiết lập tự động
+        'Authorization': 'Bearer ' + currentUser.token
       },
-      body: JSON.stringify({
-        name, description, price, image: imageUrl
-      })
+      body: formData
     });
-    let data = await res.json();
+
+    let data = await res.json().catch(() => ({}));
     if (res.ok) {
       addProductMsg.textContent = 'Thêm sản phẩm thành công!';
       addProductMsg.classList.add('success');
