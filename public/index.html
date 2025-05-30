@@ -17,7 +17,7 @@
       <nav id="mainNav">
         <a href="#products" class="nav-link">Sản phẩm</a>
         <a href="#cart" class="nav-link">Giỏ hàng</a>
-        <a href="#orders" class="nav-link">Đơn hàng</a>
+        <a href="#orders" class="nav-link">Lịch sử</a>
         <a href="#admin" class="nav-link" id="adminNavLink" style="display:none;">Admin</a>
       </nav>
       <div id="userPanel" class="user-panel"></div>
@@ -84,8 +84,21 @@
     <section id="ordersPage" style="display:none;">
       <div class="container">
         <div class="orders-card">
-          <h2>📦 Đơn hàng của bạn</h2>
+          <h2>📦 Lịch sử đặt hàng</h2>
           <div id="ordersList"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Chi tiết đơn hàng -->
+    <section id="orderDetailPage" style="display:none;">
+      <div class="container">
+        <div class="orders-card">
+          <h2>📝 Chi tiết đơn hàng</h2>
+          <div id="orderDetailContent"></div>
+          <div style="margin-top:24px;">
+            <button id="backToOrdersBtn" class="btn back-btn">Quay lại lịch sử</button>
+          </div>
         </div>
       </div>
     </section>

@@ -1,6 +1,6 @@
 // ======= SPA Routing & State =========
 const sectionIds = [
-  'loginPage', 'registerPage', 'productsPage', 'cartPage', 'ordersPage', 'adminPage'
+  'loginPage', 'registerPage', 'productsPage', 'cartPage', 'ordersPage', 'adminPage', 'orderDetailPage'
 ];
 const userPanel = document.getElementById('userPanel');
 const adminNavLink = document.getElementById('adminNavLink');
@@ -193,102 +193,292 @@ document.getElementById('searchInput').onkeydown = function(e) {
 
 // ========== GIỎ HÀNG ==========
 let cart = JSON.parse(localStorage.getItem('cart') || '{}');
-function addToCart(productId) {
-  cart[productId] = (cart[productId] || 0) + 1;
-  localStorage.setItem('cart', JSON.stringify(cart));
-  loadCart();
+async function addToCart(productId) {
+  if (!currentUser || !currentUser.token) {
+    alert('Bạn cần đăng nhập để thêm sản phẩm vào giỏ hàng.');
+    return;
+  }
+
+  try {
+    const res = await fetch('/api/orders/cart/add', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + currentUser.token
+      },
+      body: JSON.stringify({
+        product_id: productId,
+        quantity: 1
+      })
+    });
+
+    if (!res.ok) {
+      const data = await res.json();
+      throw new Error(data.message || 'Thêm sản phẩm thất bại');
+    }
+
+    const data = await res.json();
+    console.log('Đã thêm vào giỏ:', data);
+    await loadCart(); // cập nhật lại giao diện giỏ hàng
+
+  } catch (err) {
+    console.error(err);
+    alert('Lỗi khi thêm sản phẩm vào giỏ hàng: ' + err.message);
+  }
 }
-function loadCart() {
+
+async function loadCart() {
   const wrap = document.getElementById('cartItems');
-  let total = 0;
-  wrap.innerHTML = '';
-  for (const pid in cart) {
-    const prod = allProducts.find(p => p.id == pid);
-    if (!prod) continue;
-    total += prod.data.price * cart[pid];
-    wrap.innerHTML += `
-      <div>
-        <b>${prod.data.name}</b> x ${cart[pid]}
-        <span style="color:var(--secondary);font-weight:600;">${(prod.data.price * cart[pid]).toLocaleString()} đ</span>
-        <button onclick="removeFromCart('${pid}')">Xóa</button>
+  const cartTotal = document.getElementById('cartTotal');
+  const checkoutBtn = document.getElementById('checkoutBtn');
+  wrap.innerHTML = '<i>Đang tải...</i>';
+
+  try {
+    const res = await fetch('/api/orders/cart', {
+      headers: {
+        'Authorization': 'Bearer ' + currentUser.token
+      }
+    });
+
+    const data = await res.json();
+    const items = data.items || [];
+    let total = 0;
+
+    if (items.length === 0) {
+      wrap.innerHTML = '<i>Giỏ hàng trống.</i>';
+      cartTotal.textContent = '';
+      checkoutBtn.style.display = 'none';
+      return;
+    }
+
+    wrap.innerHTML = `
+      <div class="cart-header">
+        <span class="cart-col img"></span>
+        <span class="cart-col name">Sản phẩm</span>
+        <span class="cart-col qty">Số lượng</span>
+        <span class="cart-col price">Giá</span>
+        <span class="cart-col action"></span>
       </div>
     `;
-  }
-  document.getElementById('cartTotal').textContent = `Tổng: ${total.toLocaleString()} đ`;
-  if (total === 0) {
-    wrap.innerHTML = '<i>Giỏ hàng trống.</i>';
-    checkoutBtn.style.display = 'none';
-  } else {
+
+    for (const item of items) {
+      const { id: itemId, quantity, data: productData } = item;
+      const { name, price, image } = productData;
+      const subTotal = quantity * price;
+      total += subTotal;
+
+      wrap.innerHTML += `
+        <div class="cart-row">
+          <span class="cart-col img">
+            <img class="cart-prod-img" src="${image || 'https://placehold.co/56x56'}" alt="Ảnh sản phẩm">
+          </span>
+          <span class="cart-col name">${name}</span>
+          <span class="cart-col qty">${quantity}</span>
+          <span class="cart-col price">${subTotal.toLocaleString('vi-VN')} đ</span>
+          <span class="cart-col action"><button onclick="removeFromCart(${itemId})">Xóa</button></span>
+        </div>
+      `;
+    }
+
+    cartTotal.textContent = `Tổng: ${total.toLocaleString('vi-VN')} đ`;
     checkoutBtn.style.display = '';
+  } catch (err) {
+    console.error('Lỗi khi tải giỏ hàng:', err);
+    wrap.innerHTML = '<i>Lỗi tải giỏ hàng.</i>';
+    cartTotal.textContent = '';
+    checkoutBtn.style.display = 'none';
   }
 }
-function removeFromCart(pid) {
-  delete cart[pid];
-  localStorage.setItem('cart', JSON.stringify(cart));
-  loadCart();
+
+async function removeFromCart(item_id) {
+  try {
+    // Gọi API xoá item trên server
+    const res = await fetch(`/api/orders/cart/item/${item_id}`, {
+      method: 'DELETE',
+      headers: {
+        'Content-Type': 'application/json',
+        // Nếu cần token:
+        'Authorization': 'Bearer ' + currentUser.token
+      }
+    });
+    const result = await res.json();
+
+    if (result.success) {
+      // Xoá khỏi cart trên localStorage (nếu bạn vẫn lưu local)
+      delete cart[item_id];
+      localStorage.setItem('cart', JSON.stringify(cart));
+      loadCart();
+    } else {
+      alert('Xoá sản phẩm thất bại!');
+    }
+  } catch (error) {
+    alert('Có lỗi xảy ra khi xoá sản phẩm!');
+    console.error(error);
+  }
 }
-document.getElementById('checkoutBtn').onclick = async function() {
+document.getElementById('checkoutBtn').onclick = async function () {
   cartMsg.textContent = '';
+
+  // Kiểm tra đăng nhập
   if (!currentUser) {
     cartMsg.textContent = 'Bạn cần đăng nhập!';
     return;
   }
-  if (!Object.keys(cart).length) {
-    cartMsg.textContent = 'Giỏ hàng trống!';
-    return;
-  }
+
+  // Tính tổng số lượng sản phẩm
+  let totalQuantity = Object.values(cart).reduce((sum, item) => sum + item.quantity, 0);
+
   try {
     let res = await fetch('/api/orders/cart/checkout', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': currentUser.token
+        'Authorization': 'Bearer ' + currentUser.token
       },
-      body: JSON.stringify({items: cart})
+      body: JSON.stringify({
+        items: cart,
+        quantity: totalQuantity // nếu server cần tổng số lượng
+      })
     });
+
     let data = await res.json();
+
     if (res.ok) {
+      console.log("Đặt hàng thành công:", data);
+
       cartMsg.textContent = 'Đặt hàng thành công!';
       cartMsg.classList.add('success');
+
+      // Reset giỏ hàng
       cart = {};
       localStorage.setItem('cart', '{}');
+
       loadCart();
       loadOrders();
+
       setTimeout(() => { cartMsg.textContent = ''; }, 1200);
     } else {
       cartMsg.textContent = data.message || 'Đặt hàng thất bại!';
     }
-  } catch {
+
+  } catch (err) {
+    console.error("Lỗi kết nối:", err);
     cartMsg.textContent = 'Không thể kết nối server!';
   }
 };
 
-// ========== ĐƠN HÀNG ==========
+
+// ========== LỊCH SỬ ĐƠN HÀNG ==========
 async function loadOrders() {
   if (!currentUser) return;
   let res = await fetch('/api/orders', {
-    headers: {'Authorization': currentUser.token}
+    headers: { 'Authorization': 'Bearer ' + currentUser.token }
   });
   let data = await res.json();
   const wrap = document.getElementById('ordersList');
+
   if (!Array.isArray(data) || !data.length) {
     wrap.innerHTML = '<i>Chưa có đơn hàng nào.</i>';
     return;
   }
+
   wrap.innerHTML = '';
   for (const order of data) {
     let items = '';
     for (const it of order.items) {
-      items += `<div style="font-size:1em;">${it.product.data.name} x ${it.quantity} - <b>${(it.product.data.price*it.quantity).toLocaleString()} đ</b></div>`;
+      items += `
+        <div style="margin-bottom:4px;font-size:1em;">
+          ${it.product.data.name} x ${it.quantity} -
+          <b style="color:#28a745;">${(it.product.data.price * it.quantity).toLocaleString('vi-VN')} đ</b>
+        </div>
+      `;
     }
+
     wrap.innerHTML += `
-      <div>
-        <div>Mã đơn: <b>#${order.id}</b> | Trạng thái: <b>${order.status}</b> | ${new Date(order.created_at).toLocaleDateString()}</div>
-        ${items}
+      <div class="order-box" style="background:#f8f9fc;padding:15px;margin-bottom:12px;border-radius:10px;box-shadow:0 1px 4px rgba(0,0,0,0.08);">
+        <div style="font-weight:500;margin-bottom:10px;">
+          Mã đơn: <b>#${order.id}</b> |
+          Trạng thái: <span style="font-weight:bold;color:#007bff;">${order.status}</span> |
+          <span>${new Date(order.created_at).toLocaleDateString('vi-VN')}</span>
+        </div>
+        <div style="padding-left:10px;">
+          ${items}
+        </div>
+        <button class="btn-detail" data-order='${JSON.stringify(order)}' style="margin-top:8px;background:#007bff;color:#fff;border:none;padding:6px 14px;border-radius:5px;cursor:pointer;">
+          Xem chi tiết
+        </button>
       </div>
     `;
   }
+
+  // Thêm sự kiện click cho tất cả nút "Xem chi tiết"
+  wrap.querySelectorAll('.btn-detail').forEach(btn => {
+    btn.onclick = function() {
+      const order = JSON.parse(this.dataset.order);
+      showOrderDetailPage(order.id);
+    }
+  });
 }
+
+async function showOrderDetailPage(orderId) {
+  // Hide all sections, show order detail page
+  sectionIds.forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.style.display = 'none';
+  });
+  document.getElementById('orderDetailPage').style.display = 'block';
+
+  const token = localStorage.getItem('user')
+    ? JSON.parse(localStorage.getItem('user')).token
+    : (window.currentUser && window.currentUser.token);
+
+  let res = await fetch(`/api/orders/${orderId}`, {
+    headers: { 'Authorization': 'Bearer ' + token }
+  });
+  const wrap = document.getElementById('orderDetailContent');
+  if (!res.ok) {
+    wrap.innerHTML = '<b>Không thể lấy thông tin đơn hàng.</b>';
+    return;
+  }
+  let data = await res.json();
+
+  wrap.innerHTML = `
+    <div style="max-width:700px;margin: 0 auto;">
+      <div style="font-size:1.11em;margin-bottom:1.7em;">
+        <div><b>Mã đơn:</b> <span style="color:#444">#${data.order.id}</span></div>
+        <div><b>Trạng thái:</b> <span style="color:#1976d2;font-weight:600;">${data.order.status}</span></div>
+        <div><b>Ngày đặt:</b> <span style="color:#444">${new Date(data.order.created_at).toLocaleString('vi-VN')}</span></div>
+        <div><b>Ghi chú:</b> <span style="color:#666;font-style:italic;">${data.order.note ? data.order.note : "Không có"}</span></div>
+      </div>
+      <hr>
+      <div style="font-weight:700;font-size:1.08em;margin:1.5em 0 0.5em 0;">Sản phẩm:</div>
+      <div class="product-list">
+        ${data.items.map(it => `
+          <div class="product-card" style="min-height:auto;">
+            <img src="${it.data.image || 'https://placehold.co/170x140'}" alt="Ảnh sản phẩm">
+            <div class="prod-name">${it.data.name}</div>
+            <div>
+              <span class="prod-qty">x${it.quantity}</span>
+              <span class="prod-price" style="margin-left:10px;">${Number(it.data.price).toLocaleString('vi-VN')} đ</span>
+            </div>
+          </div>
+        `).join('')}
+      </div>
+      <hr>
+      <div style="display:flex;justify-content:flex-end;align-items:center;font-size:1.15em;font-weight:bold;">
+        <span style="margin-right:9px;">Tổng tiền:</span>
+        <span style="color:#e53935;">
+          ${data.items.reduce((t, it) => t + it.data.price * it.quantity, 0).toLocaleString('vi-VN')} đ
+        </span>
+      </div>
+    </div>
+  `;
+}
+// Nút quay lại lịch sử
+document.getElementById('backToOrdersBtn').onclick = function() {
+  showPage('orders');
+};
+
 
 // ========== ADMIN ==========
 document.getElementById('addProductForm').onsubmit = async function(e) {

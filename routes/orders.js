@@ -62,8 +62,36 @@ router.get('/cart', authenticateToken, async (req, res) => {
 
 // Remove item from cart
 router.delete('/cart/item/:item_id', authenticateToken, async (req, res) => {
-  await pool.query('DELETE FROM order_items WHERE id=$1', [req.params.item_id]);
-  res.json({ success: true });
+  try {
+    // 1. Lấy order_id của item này
+    const { rows } = await pool.query(
+      'SELECT order_id FROM order_items WHERE id = $1',
+      [req.params.item_id]
+    );
+    if (rows.length === 0) {
+      return res.status(404).json({ success: false, message: 'Item not found' });
+    }
+    const orderId = rows[0].order_id;
+
+    // 2. Xóa item khỏi order_items
+    await pool.query('DELETE FROM order_items WHERE id = $1', [req.params.item_id]);
+
+    // 3. Kiểm tra còn item nào trong giỏ hàng (order) này không
+    const { rowCount } = await pool.query(
+      'SELECT 1 FROM order_items WHERE order_id = $1 LIMIT 1',
+      [orderId]
+    );
+
+    // 4. Nếu không còn item nào thì xóa luôn order
+    if (rowCount === 0) {
+      await pool.query('DELETE FROM orders WHERE id = $1', [orderId]);
+    }
+
+    res.json({ success: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
 });
 
 // Checkout
@@ -78,15 +106,39 @@ router.post('/cart/checkout', authenticateToken, async (req, res) => {
 
 // View order history (user or admin)
 router.get('/', authenticateToken, async (req, res) => {
-  const { id: user_id, role } = req.user;
-  let orders;
-  if (role === 'admin') {
-    orders = (await pool.query('SELECT * FROM orders ORDER BY created_at DESC')).rows;
-  } else {
-    orders = (await pool.query('SELECT * FROM orders WHERE user_id=$1 ORDER BY created_at DESC', [user_id])).rows;
-  }
+  const { id: user_id } = req.user;
+
+  // Lấy tất cả đơn hàng thuộc về user hiện tại
+  const ordersRes = await pool.query(
+    'SELECT * FROM orders WHERE user_id = $1 ORDER BY created_at DESC',
+    [user_id]
+  );
+
+  const orders = ordersRes.rows;
+
+  // Lấy items cho từng đơn hàng
+  await Promise.all(orders.map(async (order) => {
+    const itemsRes = await pool.query(`
+      SELECT oi.quantity,
+            json_build_object(
+              'data',
+              json_build_object(
+                'name', p.data->>'name',
+                'price', (p.data->>'price')::int
+              )
+            ) AS product
+      FROM order_items oi
+      JOIN products p ON oi.product_id = p.id
+      WHERE oi.order_id = $1
+    `, [order.id]);
+
+    order.items = itemsRes.rows;
+  }));
+
   res.json(orders);
 });
+
+
 
 // View order details
 router.get('/:order_id', authenticateToken, async (req, res) => {
