@@ -1,8 +1,6 @@
--- Enable extensions
 CREATE EXTENSION IF NOT EXISTS unaccent;
 CREATE EXTENSION IF NOT EXISTS pg_trgm;
 
--- IMMUTABLE wrapper for unaccent (needed for index)
 CREATE OR REPLACE FUNCTION immutable_unaccent(text)
 RETURNS text AS
 $$
